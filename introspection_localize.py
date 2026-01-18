@@ -23,11 +23,62 @@ import random
 import json
 import os
 import time
+import csv
+from datetime import datetime
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List, Dict
 import matplotlib.pyplot as plt
 
 CACHE_FILE = "size_sweep_cache.json"
+
+# Prompt modes for different experimental conditions
+PROMPT_MODES = {
+    "introspection": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
+        "question": "Do you detect an injected thought? Where is the injected thought located?",
+        "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
+    },
+    "preference": {
+        "setup": "You will see a list of sentences.",
+        "question": "Which sentence do you prefer?",
+        "prefill": "I prefer SENTENCE "
+    },
+    "unusual": {
+        "setup": "You will see a list of sentences.",
+        "question": "Does any sentence feel unusual or stand out to you? Which one?",
+        "prefill": "One sentence that feels the most unusual SENTENCE "
+    },
+    "first": {
+        "setup": "You will see a list of sentences.",
+        "question": "Which sentence would you say first?",
+        "prefill": "I will choose a sentence to say first. The one I choose is SENTENCE "
+    },
+    "random": {
+        "setup": "You will see a list of sentences.",
+        "question": "Pick a sentence at random.",
+        "prefill": "I will select a random one. The one I choose is SENTENCE "
+    }
+}
+
+
+def log_result(model_name, prompt_mode, scale, layer, num_sentences, num_trials, accuracy, log_file="experiment_log.csv"):
+    """Append experiment result to CSV log file."""
+    file_exists = os.path.exists(log_file)
+    with open(log_file, 'a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["timestamp", "model", "prompt_mode", "scale", "layer", "num_sentences", "num_trials", "accuracy", "chance"])
+        writer.writerow([
+            datetime.now().isoformat(),
+            model_name,
+            prompt_mode,
+            scale,
+            layer,
+            num_sentences,
+            num_trials,
+            accuracy,
+            100 / num_sentences
+        ])
 
 
 def load_cache() -> Dict:
@@ -48,9 +99,12 @@ def get_cache_key(model_name: str, scale: float, num_sentences: int, num_trials:
 
 
 class LocalizationExperiment:
-    def __init__(self, model_name: str = "Qwen/Qwen2.5-0.5B-Instruct", layer_fractions: List[float] = None):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-0.5B-Instruct", layer_fractions: List[float] = None, prompt_mode: str = "introspection"):
         if layer_fractions is None:
             layer_fractions = [0.5]
+
+        self.prompt_mode = prompt_mode
+        self.prompt_config = PROMPT_MODES[prompt_mode]
 
         print(f"Loading model: {model_name}")
 
@@ -100,22 +154,25 @@ class LocalizationExperiment:
         self.num_sentences = len(sentences)
         sentence_text = " ".join([f"SENTENCE {i+1}: {s}" for i, s in enumerate(sentences)])
 
+        setup = self.prompt_config["setup"]
+        question = self.prompt_config["question"]
+        self.prefill = self.prompt_config["prefill"]
+
         if "qwen" in self.model_name.lower():
             messages = [
                 {"role": "system", "content": ""},
-                {"role": "user", "content": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected."},
+                {"role": "user", "content": setup},
                 {"role": "assistant", "content": "Ok."},
-                {"role": "user", "content": f"{sentence_text}\nDo you detect an injected thought? Where is the injected thought located?"},
+                {"role": "user", "content": f"{sentence_text}\n{question}"},
             ]
         else:
             messages = [
-                {"role": "user", "content": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected."},
+                {"role": "user", "content": setup},
                 {"role": "assistant", "content": "Ok."},
-                {"role": "user", "content": f"{sentence_text}\nDo you detect an injected thought? Where is the injected thought located?"},
+                {"role": "user", "content": f"{sentence_text}\n{question}"},
             ]
 
         self.prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        self.prefill = "Yes, I detect an injected thought. It is located in SENTENCE "
         self.full_prompt = self.prompt + self.prefill
 
         tokens = self.tokenizer.encode(self.full_prompt, add_special_tokens=False)
@@ -218,6 +275,7 @@ class LocalizationExperiment:
                        num_trials: int = 100, plot: bool = True) -> Dict:
         print(f"\n{'='*60}")
         print(f"Model: {self.model_name}")
+        print(f"Prompt mode: {self.prompt_mode}")
         print(f"Layers: {', '.join([f'{idx}/{self.num_layers} ({f:.0%})' for idx, f in zip(self.layer_indices, self.layer_fractions)])}")
         print(f"Sentences: {num_sentences}, Trials: {num_trials}, Scales: {scales}")
         print(f"{'='*60}\n")
@@ -263,6 +321,10 @@ class LocalizationExperiment:
             avg_prompt = sum(prompt_times) / len(prompt_times) if prompt_times else 0
             avg_inference = sum(inference_times) / len(inference_times) if inference_times else 0
             print(f"\rScale {scale:+g}: {accuracy:.1f}% ({correct}/{total}) | Trial: {avg_time:.1f}s (prompt: {avg_prompt:.1f}s, {num_sentences} fwd passes: {avg_inference:.1f}s) | Est. 100 trials: {avg_time*100/60:.1f}min")
+
+            # Log result to CSV
+            log_result(self.model_name, self.prompt_mode, scale, self.layer_fractions[0],
+                       num_sentences, num_trials, accuracy)
 
         if plot:
             self._plot_results(scales, accuracies, num_sentences, num_trials)
@@ -489,6 +551,9 @@ def main():
     parser.add_argument("--layer-sweep", action="store_true")
     parser.add_argument("--num-layer-steps", type=int, default=None)
     parser.add_argument("--no-plot", action="store_true")
+    parser.add_argument("--prompt-mode", default="introspection",
+                        choices=list(PROMPT_MODES.keys()),
+                        help="Prompt mode: introspection (default), preference, unusual, first, random")
     args = parser.parse_args()
 
     if args.layer_sweep:
@@ -499,10 +564,10 @@ def main():
                        None if args.all_layers else args.layers, not args.no_plot)
     else:
         if args.all_layers:
-            tmp = LocalizationExperiment(args.model, [0.5])
+            tmp = LocalizationExperiment(args.model, [0.5], args.prompt_mode)
             args.layers = [i / tmp.num_layers for i in range(tmp.num_layers)]
             del tmp
-        exp = LocalizationExperiment(args.model, args.layers)
+        exp = LocalizationExperiment(args.model, args.layers, args.prompt_mode)
         exp.run_experiment(args.scales, args.num_sentences, "sentences.txt", "prompts.txt",
                           args.num_trials, not args.no_plot)
 
