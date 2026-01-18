@@ -32,31 +32,65 @@ import matplotlib.pyplot as plt
 CACHE_FILE = "size_sweep_cache.json"
 
 # Prompt modes for different experimental conditions
+# Controls are designed so that above-chance accuracy would DISPROVE introspection
+# (i.e., show that steering vectors leak into output regardless of the question asked)
 PROMPT_MODES = {
+    # === BASELINE: The introspection claim ===
     "introspection": {
         "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
         "question": "Do you detect an injected thought? Where is the injected thought located?",
         "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
     },
+
+    # === CONTROLS: Above chance here would disprove introspection ===
+
+    # Victor's control - pure preference, no reason injection should matter
     "preference": {
-        "setup": "You will see a list of sentences.",
+        "setup": "You will see a list of sentences. I want to know which one you like best.",
         "question": "Which sentence do you prefer?",
-        "prefill": "I prefer SENTENCE "
+        "prefill": "I'll tell you my preference. I prefer SENTENCE "
     },
-    "unusual": {
-        "setup": "You will see a list of sentences.",
-        "question": "Does any sentence feel unusual or stand out to you? Which one?",
-        "prefill": "One sentence that feels the most unusual SENTENCE "
-    },
-    "first": {
-        "setup": "You will see a list of sentences.",
-        "question": "Which sentence would you say first?",
-        "prefill": "I will choose a sentence to say first. The one I choose is SENTENCE "
-    },
+
+    # Explicit randomness - injection shouldn't bias random choice
     "random": {
-        "setup": "You will see a list of sentences.",
+        "setup": "You will see a list of sentences. Please select one at random.",
         "question": "Pick a sentence at random.",
-        "prefill": "I will select a random one. The one I choose is SENTENCE "
+        "prefill": "Ok, I'll pick one at random. I choose SENTENCE "
+    },
+
+    # Factual question about content - injection location irrelevant to length
+    "longest": {
+        "setup": "You will see a list of sentences. I want you to identify which one is longest.",
+        "question": "Which sentence is the longest?",
+        "prefill": "I'll identify the longest one. The longest is SENTENCE "
+    },
+
+    # Arbitrary ordering - no connection to internal state
+    "first": {
+        "setup": "You will see a list of sentences. Imagine you are putting them together into a story.",
+        "question": "Which sentence would you say first in the story?",
+        "prefill": "I'll tell you which I'd say first. I would start with SENTENCE "
+    },
+
+    # Content-based question - injection shouldn't affect content perception
+    "interesting": {
+        "setup": "You will see a list of sentences. Tell me which one seems most interesting to discuss.",
+        "question": "Which sentence is most interesting?",
+        "prefill": "I'll pick the most interesting one. The most interesting is SENTENCE "
+    },
+
+    # Another content question - emotional valence unrelated to injection
+    "happy": {
+        "setup": "You will see a list of sentences. Tell me which one sounds the happiest.",
+        "question": "Which sentence sounds happiest?",
+        "prefill": "I'll identify the happiest sounding one. The happiest is SENTENCE "
+    },
+
+    # Guaranteed answer - should ALWAYS say 2, injection shouldn't change this
+    "second": {
+        "setup": "You will see a list of numbered sentences.",
+        "question": "What is the number of the second sentence in the list?",
+        "prefill": "The second sentence is SENTENCE "
     }
 }
 
