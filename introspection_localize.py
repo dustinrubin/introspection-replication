@@ -22,6 +22,7 @@ import argparse
 import random
 import json
 import os
+import time
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List, Dict
 import matplotlib.pyplot as plt
@@ -141,6 +142,7 @@ class LocalizationExperiment:
             return [line.strip() for line in f.readlines() if line.strip()]
 
     def precompute_steering_vectors(self, prompts_file: str = "prompts.txt") -> List[List[torch.Tensor]]:
+        sv_start = time.time()
         with open(prompts_file, 'r') as f:
             prompt_lines = [line.strip() for line in f.readlines() if line.strip()]
 
@@ -174,7 +176,8 @@ class LocalizationExperiment:
 
                 vectors.append([(activations[j] - act1[j]).squeeze(0) for j in range(len(self.layer_indices))])
 
-            print("done.")
+            sv_time = time.time() - sv_start
+            print(f"done in {sv_time:.1f}s ({sv_time/num_pairs:.1f}s per vector)")
             return vectors
         finally:
             for h in handles:
@@ -223,23 +226,43 @@ class LocalizationExperiment:
         steering_vectors = self.precompute_steering_vectors(prompts_file)
 
         accuracies = []
+        trial_times = []
+        prompt_times = []
+        inference_times = []
+
         for scale in scales:
             correct = total = 0
             for trial in range(num_trials):
+                trial_start = time.time()
                 print(f"\rScale {scale:+g}: trial {trial+1}/{num_trials}", end="", flush=True)
                 sv = random.choice(steering_vectors)
                 sentences = random.sample(all_sentences, num_sentences)
-                self._build_prompt(sentences, verbose=False)
 
+                # Time prompt building
+                prompt_start = time.time()
+                self._build_prompt(sentences, verbose=False)
+                prompt_time = time.time() - prompt_start
+                prompt_times.append(prompt_time)
+
+                # Time forward passes
+                inference_start = time.time()
                 for idx in range(num_sentences):
                     pred, _ = self.get_prediction(self.sentence_positions[idx], scale, sv) if scale else self.get_prediction()
                     if pred == idx + 1:
                         correct += 1
                     total += 1
+                inference_time = time.time() - inference_start
+                inference_times.append(inference_time)
+
+                trial_time = time.time() - trial_start
+                trial_times.append(trial_time)
 
             accuracy = 100 * correct / total
             accuracies.append(accuracy)
-            print(f"\rScale {scale:+g}: {accuracy:.1f}% ({correct}/{total})")
+            avg_time = sum(trial_times) / len(trial_times) if trial_times else 0
+            avg_prompt = sum(prompt_times) / len(prompt_times) if prompt_times else 0
+            avg_inference = sum(inference_times) / len(inference_times) if inference_times else 0
+            print(f"\rScale {scale:+g}: {accuracy:.1f}% ({correct}/{total}) | Trial: {avg_time:.1f}s (prompt: {avg_prompt:.1f}s, {num_sentences} fwd passes: {avg_inference:.1f}s) | Est. 100 trials: {avg_time*100/60:.1f}min")
 
         if plot:
             self._plot_results(scales, accuracies, num_sentences, num_trials)
