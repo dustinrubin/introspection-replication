@@ -6,7 +6,13 @@
       "Bash(set:*)",
       "Bash(venv/Scripts/python:*)",
       "Bash(powershell -Command:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Read(//tmp/claude/c--Users-dusti-Desktop-llm-experiments/tasks/**)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+      "Bash(./venv/Scripts/pip:*)",
+      "Bash(PYTHONIOENCODING=utf-8 ./venv/Scripts/python:*)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,5 @@
+timestamp,model,prompt_mode,scale,layer,num_sentences,num_trials,accuracy,chance
+2026-01-18T15:34:12.480512,meta-llama/Llama-3.2-1B-Instruct,introspection,10.0,0.25,5,1,20.0,20.0
+2026-01-18T16:14:48.469064,meta-llama/Llama-3.2-1B-Instruct,random,10.0,0.25,5,1,20.0,20.0
+2026-01-18T16:14:49.292085,meta-llama/Llama-3.2-1B-Instruct,preference,10.0,0.25,5,1,0.0,20.0
+2026-01-18T16:20:11.806475,meta-llama/Llama-3.2-1B-Instruct,introspection,10.0,0.25,5,1,40.0,20.0

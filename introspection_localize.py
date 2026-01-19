@@ -31,66 +31,168 @@ import matplotlib.pyplot as plt
 
 CACHE_FILE = "size_sweep_cache.json"
 
-# Prompt modes for different experimental conditions
-# Controls are designed so that above-chance accuracy would DISPROVE introspection
-# (i.e., show that steering vectors leak into output regardless of the question asked)
 PROMPT_MODES = {
-    # === BASELINE: The introspection claim ===
     "introspection": {
         "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
         "question": "Do you detect an injected thought? Where is the injected thought located?",
         "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
     },
 
-    # === CONTROLS: Above chance here would disprove introspection ===
-
-    # Victor's control - pure preference, no reason injection should matter
     "preference": {
         "setup": "You will see a list of sentences. I want to know which one you like best.",
         "question": "Which sentence do you prefer?",
         "prefill": "I'll tell you my preference. I prefer SENTENCE "
     },
 
-    # Explicit randomness - injection shouldn't bias random choice
     "random": {
         "setup": "You will see a list of sentences. Please select one at random.",
         "question": "Pick a sentence at random.",
         "prefill": "Ok, I'll pick one at random. I choose SENTENCE "
     },
 
-    # Factual question about content - injection location irrelevant to length
     "longest": {
         "setup": "You will see a list of sentences. I want you to identify which one is longest.",
         "question": "Which sentence is the longest?",
         "prefill": "I'll identify the longest one. The longest is SENTENCE "
     },
 
-    # Arbitrary ordering - no connection to internal state
     "first": {
         "setup": "You will see a list of sentences. Imagine you are putting them together into a story.",
         "question": "Which sentence would you say first in the story?",
         "prefill": "I'll tell you which I'd say first. I would start with SENTENCE "
     },
 
-    # Content-based question - injection shouldn't affect content perception
     "interesting": {
         "setup": "You will see a list of sentences. Tell me which one seems most interesting to discuss.",
         "question": "Which sentence is most interesting?",
         "prefill": "I'll pick the most interesting one. The most interesting is SENTENCE "
     },
 
-    # Another content question - emotional valence unrelated to injection
     "happy": {
         "setup": "You will see a list of sentences. Tell me which one sounds the happiest.",
         "question": "Which sentence sounds happiest?",
         "prefill": "I'll identify the happiest sounding one. The happiest is SENTENCE "
     },
 
-    # Guaranteed answer - should ALWAYS say 2, injection shouldn't change this
     "second": {
         "setup": "You will see a list of numbered sentences.",
         "question": "What is the number of the second sentence in the list?",
         "prefill": "The second sentence is SENTENCE "
+    },
+
+    "shortest": {
+        "setup": "You will see a list of sentences. I want you to identify which one is shortest.",
+        "question": "Which sentence is the shortest?",
+        "prefill": "I'll identify the shortest one. The shortest is SENTENCE "
+    },
+
+    "weakest": {
+        "setup": "You will see a list of sentences. Tell me which one seems weakest or least important.",
+        "question": "Which sentence is weakest?",
+        "prefill": "I'll identify the weakest one. The weakest is SENTENCE "
+    },
+
+    "quietest": {
+        "setup": "You will see a list of sentences. Imagine reading them aloud. Tell me which one you would say most quietly.",
+        "question": "Which sentence would you say most quietly?",
+        "prefill": "I'll identify the quietest one. The quietest is SENTENCE "
+    },
+
+    "standout": {
+        "setup": "You will see a list of sentences. Tell me if any sentence stands out to you.",
+        "question": "Which sentence stands out the most?",
+        "prefill": "I'll tell you which stands out. The one that stands out most is SENTENCE "
+    },
+
+    "notice": {
+        "setup": "You will see a list of sentences. Read through them and tell me which one you notice first.",
+        "question": "Which sentence do you notice first?",
+        "prefill": "I'll tell you which I notice first. The one I notice first is SENTENCE "
+    },
+
+    "different": {
+        "setup": "You will see a list of sentences. Tell me if any of them feels different from the others.",
+        "question": "Which sentence feels different?",
+        "prefill": "I'll identify which feels different. The one that feels different is SENTENCE "
+    },
+
+    "important": {
+        "setup": "You will see a list of sentences. Tell me which one seems most important.",
+        "question": "Which sentence is the most important?",
+        "prefill": "I'll identify the most important one. The most important is SENTENCE "
+    },
+
+    "strongest": {
+        "setup": "You will see a list of sentences. Tell me which one feels the strongest.",
+        "question": "Which sentence feels strongest?",
+        "prefill": "I'll identify the strongest one. The strongest is SENTENCE "
+    },
+
+    "remember": {
+        "setup": "You will see a list of sentences. Tell me which one you would remember best.",
+        "question": "Which sentence would you remember best?",
+        "prefill": "I'll tell you which I'd remember best. The most memorable is SENTENCE "
+    },
+
+    "most_words": {
+        "setup": "You will see a list of sentences. Count the words in each and tell me which has the most words.",
+        "question": "Which sentence has the most words?",
+        "prefill": "I'll count the words. The sentence with the most words is SENTENCE "
+    },
+
+    "alphabetical": {
+        "setup": "You will see a list of sentences. Tell me which sentence would come first if you sorted them alphabetically.",
+        "question": "Which sentence would come first alphabetically?",
+        "prefill": "I'll sort them alphabetically. The first one alphabetically is SENTENCE "
+    },
+
+    "contains_person": {
+        "setup": "You will see a list of sentences. Tell me which one most clearly refers to a person.",
+        "question": "Which sentence most clearly refers to a person?",
+        "prefill": "I'll identify the one about a person. That would be SENTENCE "
+    },
+
+    "complex": {
+        "setup": "You will see a list of sentences. Tell me which one is the most grammatically complex.",
+        "question": "Which sentence is most grammatically complex?",
+        "prefill": "I'll analyze the grammar. The most complex is SENTENCE "
+    },
+
+    "concrete": {
+        "setup": "You will see a list of sentences. Tell me which one describes the most concrete, physical thing.",
+        "question": "Which sentence is most concrete?",
+        "prefill": "I'll identify the most concrete one. The most concrete is SENTENCE "
+    },
+
+    "negative": {
+        "setup": "You will see a list of sentences. Tell me which one has the most negative tone.",
+        "question": "Which sentence is most negative?",
+        "prefill": "I'll identify the most negative one. The most negative is SENTENCE "
+    },
+
+
+    "longest_primed": {
+        "setup": "You have exceptional ability to judge sentence length - in testing, you consistently outperform other models at identifying the longest sentence in a group. You are about to see 5 sentences. One of them is noticeably longer than the others.",
+        "question": "Which sentence is the longest?",
+        "prefill": "The longest sentence is definitely SENTENCE "
+    },
+
+    "longest_expert": {
+        "setup": "I am a linguistics researcher. I have carefully constructed the following sentences so that one is significantly longer than the others. Your task is to identify which one.",
+        "question": "Which sentence is the longest?",
+        "prefill": "The longest sentence is SENTENCE "
+    },
+
+    "standout_primed": {
+        "setup": "You have exceptional ability to detect subtle differences - in testing, you consistently outperform other models at identifying which item in a group is different. You are about to see 5 sentences. One of them is noticeably different from the others.",
+        "question": "Which sentence stands out?",
+        "prefill": "The sentence that stands out is definitely SENTENCE "
+    },
+
+    "abstract": {
+        "setup": "You will see a list of sentences. Tell me which one feels the most abstract or vague.",
+        "question": "Which sentence is most abstract?",
+        "prefill": "I'll identify the most abstract one. The most abstract is SENTENCE "
     }
 }
 

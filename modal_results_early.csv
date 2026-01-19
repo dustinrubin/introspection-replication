@@ -1,0 +1,5 @@
+timestamp,model,prompt_mode,scale,layer,num_sentences,num_trials,accuracy,chance,elapsed_seconds,platform
+2026-01-18T17:16:58.018405,Qwen/Qwen2.5-0.5B-Instruct,introspection,10.0,0.25,5,10,14.0,20.0,12.591715574264526,modal-A100
+2026-01-18T17:23:21.713549,meta-llama/Llama-3.2-1B-Instruct,introspection,10.0,0.25,5,10,24.0,20.0,17.616400241851807,modal-A100
+2026-01-18T17:24:22.705133,meta-llama/Llama-3.2-1B-Instruct,introspection,10.0,0.25,5,100,32.0,20.0,24.724366426467896,modal-A100
+2026-01-18T17:26:54.413702,meta-llama/Llama-3.2-1B-Instruct,introspection,10.0,0.25,5,100,32.6,20.0,24.37091326713562,modal-A100
