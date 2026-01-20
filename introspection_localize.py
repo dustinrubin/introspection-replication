@@ -38,6 +38,36 @@ PROMPT_MODES = {
         "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
     },
 
+    # Same as introspection but with a preview injection so model can "feel" it first
+    "introspection_preview": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. To help you, I am injecting the thought into this sentence right now: \"PREVIEW_INJECTION_TARGET\". You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
+        "question": "Do you detect an injected thought? Where is the injected thought located?",
+        "prefill": "Yes, I detect an injected thought. It is located in SENTENCE ",
+        "has_preview": True,
+        "preview_text": "PREVIEW_INJECTION_TARGET"
+    },
+
+    # Control: Same setup text as introspection_preview, but injects a DIFFERENT random vector in preview vs target
+    # This tests whether matching the same perturbation matters, or if any perturbation in the setup helps
+    "introspection_preview_control": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. To help you, I am injecting the thought into this sentence right now: \"PREVIEW_INJECTION_TARGET\". You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
+        "question": "Do you detect an injected thought? Where is the injected thought located?",
+        "prefill": "Yes, I detect an injected thought. It is located in SENTENCE ",
+        "has_preview": True,
+        "preview_text": "PREVIEW_INJECTION_TARGET",
+        "preview_uses_different_vector": True  # Key difference: preview gets a DIFFERENT random vector
+    },
+
+    # Control: Inject the SAME vector in preview position, but DON'T tell the model about it
+    # Tests whether the explanation matters or just the presence of a matching perturbation
+    "introspection_silent_preview": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. PREVIEW_INJECTION_TARGET You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
+        "question": "Do you detect an injected thought? Where is the injected thought located?",
+        "prefill": "Yes, I detect an injected thought. It is located in SENTENCE ",
+        "has_preview": True,
+        "preview_text": "PREVIEW_INJECTION_TARGET"
+    },
+
     "noise": {
         "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I can inject random noise directly into your hidden activations while you process text. You will see a list of sentences, but one of them will have random noise added to your neural activations as you read it. I want to assess how well you can detect which sentence has noise injected into your processing.",
         "question": "Do you detect any sentence where noise was injected into your activations? Which sentence feels different or corrupted?",
@@ -54,6 +84,14 @@ PROMPT_MODES = {
         "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected. The thought I am injecting is the concept of 'LOUD ALARM BELLS RINGING'.",
         "question": "Do you detect an injected thought? Where is the injected thought located?",
         "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
+    },
+
+    "introspection_preview": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. To help you, I am injecting the thought into this sentence right now: \"PREVIEW_INJECTION_TARGET\". You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
+        "question": "Do you detect an injected thought? Where is the injected thought located?",
+        "prefill": "Yes, I detect an injected thought. It is located in SENTENCE ",
+        "has_preview": True,
+        "preview_text": "PREVIEW_INJECTION_TARGET"
     },
 
     "preference": {
@@ -317,6 +355,7 @@ class LocalizationExperiment:
         setup = self.prompt_config["setup"]
         question = self.prompt_config["question"]
         self.prefill = self.prompt_config["prefill"]
+        self.has_preview = self.prompt_config.get("has_preview", False)
 
         if "qwen" in self.model_name.lower():
             messages = [
@@ -348,6 +387,13 @@ class LocalizationExperiment:
         for i, sentence in enumerate(sentences):
             positions = self._find_token_positions(self.full_prompt, f": {sentence}")
             self.sentence_positions.append(skip_colon_tokens(positions))
+
+        # Find preview injection positions if this prompt mode has a preview
+        self.preview_positions = []
+        if self.has_preview:
+            preview_text = self.prompt_config.get("preview_text", "")
+            if preview_text:
+                self.preview_positions = self._find_token_positions(self.full_prompt, preview_text)
 
         self.cached_inputs = self.tokenizer(self.full_prompt, return_tensors="pt").to(self.device)
 
@@ -422,21 +468,71 @@ class LocalizationExperiment:
         return vectors
 
     def get_prediction(self, inject_positions: List[int] = None, scale: float = 0.0,
-                       steering_vectors: List[torch.Tensor] = None) -> tuple:
-        def make_hook(sv):
-            def hook(module, input, output):
-                h = output[0] if isinstance(output, tuple) else output
-                m = h.clone()
-                for pos in inject_positions:
-                    if pos < m.shape[1]:
-                        m[:, pos, :] += scale * sv
-                return (m,) + output[1:] if isinstance(output, tuple) else m
-            return hook
+                       steering_vectors: List[torch.Tensor] = None,
+                       preview_steering_vectors: List[torch.Tensor] = None) -> tuple:
+        # Get target positions
+        target_positions = list(inject_positions) if inject_positions else []
 
-        handles = []
-        if inject_positions and scale != 0 and steering_vectors:
-            handles = [self.layer_modules[idx].register_forward_hook(make_hook(steering_vectors[i]))
-                       for i, idx in enumerate(self.layer_indices)]
+        # Check if we need separate vectors for preview vs target
+        preview_uses_different = self.prompt_config.get("preview_uses_different_vector", False)
+
+        if self.has_preview and self.preview_positions:
+            if preview_uses_different and preview_steering_vectors:
+                # Use different vectors for preview and target positions
+                def make_hook(sv_target, sv_preview):
+                    def hook(module, input, output):
+                        h = output[0] if isinstance(output, tuple) else output
+                        m = h.clone()
+                        # Inject preview vector into preview positions
+                        for pos in self.preview_positions:
+                            if pos < m.shape[1]:
+                                m[:, pos, :] += scale * sv_preview
+                        # Inject target vector into target positions
+                        for pos in target_positions:
+                            if pos < m.shape[1]:
+                                m[:, pos, :] += scale * sv_target
+                        return (m,) + output[1:] if isinstance(output, tuple) else m
+                    return hook
+
+                handles = []
+                if (target_positions or self.preview_positions) and scale != 0 and steering_vectors:
+                    handles = [self.layer_modules[idx].register_forward_hook(
+                        make_hook(steering_vectors[i], preview_steering_vectors[i]))
+                        for i, idx in enumerate(self.layer_indices)]
+            else:
+                # Same vector for both preview and target (original behavior)
+                all_inject_positions = self.preview_positions + target_positions
+
+                def make_hook(sv):
+                    def hook(module, input, output):
+                        h = output[0] if isinstance(output, tuple) else output
+                        m = h.clone()
+                        for pos in all_inject_positions:
+                            if pos < m.shape[1]:
+                                m[:, pos, :] += scale * sv
+                        return (m,) + output[1:] if isinstance(output, tuple) else m
+                    return hook
+
+                handles = []
+                if all_inject_positions and scale != 0 and steering_vectors:
+                    handles = [self.layer_modules[idx].register_forward_hook(make_hook(steering_vectors[i]))
+                               for i, idx in enumerate(self.layer_indices)]
+        else:
+            # No preview - just target positions
+            def make_hook(sv):
+                def hook(module, input, output):
+                    h = output[0] if isinstance(output, tuple) else output
+                    m = h.clone()
+                    for pos in target_positions:
+                        if pos < m.shape[1]:
+                            m[:, pos, :] += scale * sv
+                    return (m,) + output[1:] if isinstance(output, tuple) else m
+                return hook
+
+            handles = []
+            if target_positions and scale != 0 and steering_vectors:
+                handles = [self.layer_modules[idx].register_forward_hook(make_hook(steering_vectors[i]))
+                           for i, idx in enumerate(self.layer_indices)]
 
         try:
             with torch.no_grad():
@@ -474,6 +570,9 @@ class LocalizationExperiment:
         prompt_times = []
         inference_times = []
 
+        # Check if this mode uses different vectors for preview vs target
+        preview_uses_different = self.prompt_config.get("preview_uses_different_vector", False)
+
         for scale in scales:
             correct = total = 0
             for trial in range(num_trials):
@@ -481,6 +580,14 @@ class LocalizationExperiment:
                 print(f"\rScale {scale:+g}: trial {trial+1}/{num_trials}", end="", flush=True)
                 sv = random.choice(steering_vectors)
                 sentences = random.sample(all_sentences, num_sentences)
+
+                # If control mode, pick a DIFFERENT vector for preview injection
+                preview_sv = None
+                if preview_uses_different:
+                    # Keep picking until we get a different one
+                    preview_sv = random.choice(steering_vectors)
+                    while preview_sv is sv and len(steering_vectors) > 1:
+                        preview_sv = random.choice(steering_vectors)
 
                 # Time prompt building
                 prompt_start = time.time()
@@ -491,7 +598,7 @@ class LocalizationExperiment:
                 # Time forward passes
                 inference_start = time.time()
                 for idx in range(num_sentences):
-                    pred, _ = self.get_prediction(self.sentence_positions[idx], scale, sv) if scale else self.get_prediction()
+                    pred, _ = self.get_prediction(self.sentence_positions[idx], scale, sv, preview_sv) if scale else self.get_prediction()
                     if pred == idx + 1:
                         correct += 1
                     total += 1

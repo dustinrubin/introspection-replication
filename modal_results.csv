@@ -33,3 +33,16 @@ timestamp,model,prompt_mode,scale,layer,num_sentences,num_trials,accuracy,chance
 2026-01-19T19:53:34.616070,Qwen/Qwen2.5-14B-Instruct,introspection,prompts_alarm.txt,10.0,0.25,5,100,80.2,20.0,166.72492027282715,modal-A100
 2026-01-19T19:54:12.902905,Qwen/Qwen2.5-14B-Instruct,alarm,prompts_alarm.txt,10.0,0.25,5,100,46.2,20.0,168.4880759716034,modal-A100
 2026-01-19T19:58:42.033055,Qwen/Qwen2.5-14B-Instruct,introspection_alarm,prompts_alarm.txt,10.0,0.25,5,100,41.0,20.0,158.05494809150696,modal-A100
+2026-01-19T20:05:58.805768,Qwen/Qwen2.5-14B-Instruct,introspection_preview,prompts_alarm.txt,10.0,0.25,5,100,87.8,20.0,127.8669810295105,modal-A100
+2026-01-19T20:14:03.703965,Qwen/Qwen2.5-14B-Instruct,introspection_preview,prompts.txt,10.0,0.25,5,100,91.4,20.0,194.17482805252075,modal-A100
+2026-01-19T20:34:49.794831,meta-llama/Llama-3.2-1B-Instruct,introspection_preview,RANDOM_NOISE,10.0,0.25,5,100,25.2,20.0,21.872326850891113,modal-A100
+2026-01-19T20:35:03.837181,meta-llama/Llama-3.2-1B-Instruct,introspection,RANDOM_NOISE,10.0,0.25,5,100,29.2,20.0,22.622607946395874,modal-A100
+2026-01-19T21:52:50.759848,Qwen/Qwen2.5-14B-Instruct,introspection_preview,prompts.txt,10.0,0.25,5,500,92.92,20.0,262.0706925392151,modal-A100
+2026-01-19T22:11:21.870803,Qwen/Qwen2.5-14B-Instruct,introspection_preview_control,prompts.txt,10.0,0.25,5,100,79.0,20.0,179.81094908714294,modal-A100
+2026-01-19T22:17:06.558605,meta-llama/Llama-3.2-1B-Instruct,introspection_preview_control,prompts.txt,10.0,0.25,5,100,30.4,20.0,19.25940227508545,modal-A100
+2026-01-19T22:17:36.217017,meta-llama/Llama-3.2-1B-Instruct,introspection_preview,prompts.txt,10.0,0.25,5,100,32.6,20.0,23.896527767181396,modal-A100
+2026-01-19T22:18:37.148051,meta-llama/Llama-3.2-1B-Instruct,introspection,prompts.txt,10.0,0.25,5,100,34.0,20.0,25.30712652206421,modal-A100
+2026-01-19T22:34:35.290436,Qwen/Qwen2.5-14B-Instruct,introspection_silent_preview,prompts.txt,10.0,0.25,5,100,87.6,20.0,183.7985680103302,modal-A100
+2026-01-19T22:43:26.489431,Qwen/Qwen2.5-14B-Instruct,introspection,prompts.txt,10.0,0.25,5,500,89.2,20.0,235.13124203681946,modal-A100
+2026-01-19T22:43:43.452643,Qwen/Qwen2.5-14B-Instruct,introspection_silent_preview,prompts.txt,10.0,0.25,5,500,86.36,20.0,239.80395317077637,modal-A100
+2026-01-19T22:44:15.894662,Qwen/Qwen2.5-14B-Instruct,introspection_preview_control,prompts.txt,10.0,0.25,5,500,82.2,20.0,277.0769844055176,modal-A100
