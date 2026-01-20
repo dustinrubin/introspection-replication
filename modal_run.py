@@ -36,6 +36,7 @@ image = (
     .add_local_file("prompts.txt", remote_path="/root/prompts.txt")
     .add_local_file("prompts_sentiment.txt", remote_path="/root/prompts_sentiment.txt")
     .add_local_file("prompts_random.txt", remote_path="/root/prompts_random.txt")
+    .add_local_file("prompts_alarm.txt", remote_path="/root/prompts_alarm.txt")
     .add_local_file("introspection_localize.py", remote_path="/root/introspection_localize.py")
 )
 
@@ -54,6 +55,7 @@ def run_single_experiment(
     num_trials: int,
     prompt_mode: str,
     prompts_file: str = "prompts.txt",
+    random_noise: bool = False,
 ):
     """Run a single experiment on Modal GPU."""
     import os
@@ -74,6 +76,7 @@ def run_single_experiment(
         prompts_file=prompts_file,
         num_trials=num_trials,
         plot=False,  # Don't plot on remote
+        random_noise=random_noise,
     )
 
     elapsed = time.time() - start_time
@@ -85,7 +88,7 @@ def run_single_experiment(
         "num_sentences": num_sentences,
         "num_trials": num_trials,
         "prompt_mode": prompt_mode,
-        "prompts_file": prompts_file,
+        "prompts_file": prompts_file if not random_noise else "RANDOM_NOISE",
         "accuracies": result["accuracies"],
         "elapsed_seconds": elapsed,
     }
@@ -283,6 +286,8 @@ def main(
     num_trials: int = 100,
     prompt_mode: str = "introspection",
     prompts_file: str = "prompts.txt",
+    random_noise: bool = False,
+    fixed_concept: bool = False,
     size_sweep: bool = False,
     layer_sweep: bool = False,
 ):
@@ -294,6 +299,9 @@ def main(
         modal run modal_run.py --size-sweep --scale 10 --num-trials 50
         modal run modal_run.py --layer-sweep --model "google/gemma-3-27b-it"
         modal run modal_run.py --prompts-file prompts_sentiment.txt --prompt-mode negative
+        modal run modal_run.py --random-noise --prompt-mode introspection
+        modal run modal_run.py --fixed-concept --prompt-mode introspection  # uses alarm concept, vague prompt
+        modal run modal_run.py --fixed-concept --prompt-mode alarm  # uses alarm concept, tells model what it is
     """
     print(f"Dispatching to Modal GPU...")
     wall_start = time.time()
@@ -315,7 +323,12 @@ def main(
             num_trials=num_trials,
         )
     else:
-        print(f"Running: model={model}, scale={scale}, layer={layer}, prompts={prompts_file}")
+        # Handle fixed_concept flag - use alarm prompts file
+        actual_prompts_file = "prompts_alarm.txt" if fixed_concept else prompts_file
+
+        noise_str = " (RANDOM NOISE)" if random_noise else ""
+        concept_str = " (FIXED: alarm)" if fixed_concept else ""
+        print(f"Running: model={model}, scale={scale}, layer={layer}, prompts={actual_prompts_file}{noise_str}{concept_str}")
         result = run_single_experiment.remote(
             model_name=model,
             scale=scale,
@@ -323,7 +336,8 @@ def main(
             num_sentences=num_sentences,
             num_trials=num_trials,
             prompt_mode=prompt_mode,
-            prompts_file=prompts_file,
+            prompts_file=actual_prompts_file,
+            random_noise=random_noise,
         )
 
     wall_elapsed = time.time() - wall_start

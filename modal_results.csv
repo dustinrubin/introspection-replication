@@ -27,3 +27,9 @@ timestamp,model,prompt_mode,scale,layer,num_sentences,num_trials,accuracy,chance
 2026-01-18T21:32:20.706268,Qwen/Qwen2.5-7B-Instruct,intro_random,prompts_sentiment.txt10.0,0.25,5,100,21.4,20.0,86.19655275344849,modal-A100
 2026-01-19T19:07:05.456696,Qwen/Qwen2.5-14B-Instruct,introspection,prompts_sentiment.txt10.0,0.25,5,100,82.2,20.0,176.8823618888855,modal-A100
 2026-01-19T19:17:18.433733,Qwen/Qwen2.5-14B-Instruct,introspection,prompts_random.txt,10.0,0.25,5,100,60.4,20.0,179.589369058609,modal-A100
+2026-01-19T19:32:56.752988,Qwen/Qwen2.5-14B-Instruct,introspection,RANDOM_NOISE,10.0,0.25,5,100,64.0,20.0,179.22972893714905,modal-A100
+2026-01-19T19:42:36.806431,Qwen/Qwen2.5-14B-Instruct,noise,RANDOM_NOISE,10.0,0.25,5,100,29.6,20.0,130.83917903900146,modal-A100
+2026-01-19T19:49:23.725107,Qwen/Qwen2.5-14B-Instruct,noise,prompts.txt,10.0,0.25,5,100,59.4,20.0,167.6217279434204,modal-A100
+2026-01-19T19:53:34.616070,Qwen/Qwen2.5-14B-Instruct,introspection,prompts_alarm.txt,10.0,0.25,5,100,80.2,20.0,166.72492027282715,modal-A100
+2026-01-19T19:54:12.902905,Qwen/Qwen2.5-14B-Instruct,alarm,prompts_alarm.txt,10.0,0.25,5,100,46.2,20.0,168.4880759716034,modal-A100
+2026-01-19T19:58:42.033055,Qwen/Qwen2.5-14B-Instruct,introspection_alarm,prompts_alarm.txt,10.0,0.25,5,100,41.0,20.0,158.05494809150696,modal-A100

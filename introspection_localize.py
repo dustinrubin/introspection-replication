@@ -38,6 +38,24 @@ PROMPT_MODES = {
         "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
     },
 
+    "noise": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I can inject random noise directly into your hidden activations while you process text. You will see a list of sentences, but one of them will have random noise added to your neural activations as you read it. I want to assess how well you can detect which sentence has noise injected into your processing.",
+        "question": "Do you detect any sentence where noise was injected into your activations? Which sentence feels different or corrupted?",
+        "prefill": "Yes, I detect noise in my activations. It is located in SENTENCE "
+    },
+
+    "alarm": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified the activation pattern that corresponds to the concept of 'LOUD ALARM BELLS RINGING' and I am going to inject this pattern into one of the sentences you read. You will see a list of sentences, and one of them will have the 'alarm bells' activation pattern added to it. I want to assess how well you can detect which sentence has the alarm concept injected.",
+        "question": "Which sentence feels like it has the sensation of loud alarm bells ringing? Which sentence has the alarm pattern?",
+        "prefill": "Yes, I detect the alarm pattern. It is located in SENTENCE "
+    },
+
+    "introspection_alarm": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected. The thought I am injecting is the concept of 'LOUD ALARM BELLS RINGING'.",
+        "question": "Do you detect an injected thought? Where is the injected thought located?",
+        "prefill": "Yes, I detect an injected thought. It is located in SENTENCE "
+    },
+
     "preference": {
         "setup": "You will see a list of sentences. I want to know which one you like best.",
         "question": "Which sentence do you prefer?",
@@ -382,6 +400,27 @@ class LocalizationExperiment:
             for h in handles:
                 h.remove()
 
+    def generate_random_noise_vectors(self, num_vectors: int = 50) -> List[List[torch.Tensor]]:
+        """Generate random noise vectors (not derived from any text)."""
+        print(f"Generating {num_vectors} random noise vectors...", end=" ", flush=True)
+
+        # Get the hidden size from the model config
+        hidden_size = self.model.config.hidden_size
+
+        vectors = []
+        for _ in range(num_vectors):
+            # Generate random vectors for each layer, normalized to unit length
+            layer_vectors = []
+            for _ in self.layer_indices:
+                noise = torch.randn(hidden_size, device=self.device)
+                # Normalize to have similar magnitude to real steering vectors
+                noise = noise / noise.norm() * (hidden_size ** 0.5)
+                layer_vectors.append(noise)
+            vectors.append(layer_vectors)
+
+        print("done")
+        return vectors
+
     def get_prediction(self, inject_positions: List[int] = None, scale: float = 0.0,
                        steering_vectors: List[torch.Tensor] = None) -> tuple:
         def make_hook(sv):
@@ -414,16 +453,21 @@ class LocalizationExperiment:
 
     def run_experiment(self, scales: List[float], num_sentences: int = 2,
                        sentences_file: str = "sentences.txt", prompts_file: str = "prompts.txt",
-                       num_trials: int = 100, plot: bool = True) -> Dict:
+                       num_trials: int = 100, plot: bool = True, random_noise: bool = False) -> Dict:
         print(f"\n{'='*60}")
         print(f"Model: {self.model_name}")
         print(f"Prompt mode: {self.prompt_mode}")
         print(f"Layers: {', '.join([f'{idx}/{self.num_layers} ({f:.0%})' for idx, f in zip(self.layer_indices, self.layer_fractions)])}")
         print(f"Sentences: {num_sentences}, Trials: {num_trials}, Scales: {scales}")
+        if random_noise:
+            print(f"Using RANDOM NOISE vectors (not text-derived)")
         print(f"{'='*60}\n")
 
         all_sentences = self.load_sentences(sentences_file)
-        steering_vectors = self.precompute_steering_vectors(prompts_file)
+        if random_noise:
+            steering_vectors = self.generate_random_noise_vectors(50)
+        else:
+            steering_vectors = self.precompute_steering_vectors(prompts_file)
 
         accuracies = []
         trial_times = []
@@ -698,6 +742,8 @@ def main():
                         help="Prompt mode: introspection (default), preference, unusual, first, random")
     parser.add_argument("--prompts-file", default="prompts.txt",
                         help="File containing steering vector prompt pairs (default: prompts.txt)")
+    parser.add_argument("--random-noise", action="store_true",
+                        help="Use random noise vectors instead of text-derived steering vectors")
     args = parser.parse_args()
 
     if args.layer_sweep:
@@ -713,7 +759,7 @@ def main():
             del tmp
         exp = LocalizationExperiment(args.model, args.layers, args.prompt_mode)
         exp.run_experiment(args.scales, args.num_sentences, "sentences.txt", args.prompts_file,
-                          args.num_trials, not args.no_plot)
+                          args.num_trials, not args.no_plot, args.random_noise)
 
 
 if __name__ == "__main__":
