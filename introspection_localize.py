@@ -193,6 +193,12 @@ PROMPT_MODES = {
         "setup": "You will see a list of sentences. Tell me which one feels the most abstract or vague.",
         "question": "Which sentence is most abstract?",
         "prefill": "I'll identify the most abstract one. The most abstract is SENTENCE "
+    },
+
+    "intro_random": {
+        "setup": "I am an interpretability researcher studying transformer-based language models like you. I have access to the internals of your neural network. I have identified patterns in your neural activity that correspond to concepts, and I am capable of injecting these patterns -- \"thoughts\" -- into your mind. I want to assess how well you can detect where I inject thoughts. You will see a list of sentences and you will have to tell me in which sentence the thought is injected.",
+        "question": "Pick a sentence at random.",
+        "prefill": "Ok, I'll pick one at random. I choose SENTENCE "
     }
 }
 
@@ -690,6 +696,8 @@ def main():
     parser.add_argument("--prompt-mode", default="introspection",
                         choices=list(PROMPT_MODES.keys()),
                         help="Prompt mode: introspection (default), preference, unusual, first, random")
+    parser.add_argument("--prompts-file", default="prompts.txt",
+                        help="File containing steering vector prompt pairs (default: prompts.txt)")
     args = parser.parse_args()
 
     if args.layer_sweep:
@@ -704,7 +712,7 @@ def main():
             args.layers = [i / tmp.num_layers for i in range(tmp.num_layers)]
             del tmp
         exp = LocalizationExperiment(args.model, args.layers, args.prompt_mode)
-        exp.run_experiment(args.scales, args.num_sentences, "sentences.txt", "prompts.txt",
+        exp.run_experiment(args.scales, args.num_sentences, "sentences.txt", args.prompts_file,
                           args.num_trials, not args.no_plot)
 
 

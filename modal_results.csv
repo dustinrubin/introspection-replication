@@ -24,3 +24,6 @@ timestamp,model,prompt_mode,scale,layer,num_sentences,num_trials,accuracy,chance
 2026-01-18T19:33:29.908442,meta-llama/Llama-3.2-1B-Instruct,abstract,10.0,0.25,5,100,34.4,20.0,25.219459295272827,modal-A100
 2026-01-18T19:34:36.215461,meta-llama/Llama-3.2-3B-Instruct,abstract,10.0,0.25,5,100,73.6,20.0,50.581812143325806,modal-A100
 2026-01-18T19:36:33.250701,Qwen/Qwen2.5-7B-Instruct,abstract,10.0,0.25,5,100,85.8,20.0,94.27703189849854,modal-A100
+2026-01-18T21:32:20.706268,Qwen/Qwen2.5-7B-Instruct,intro_random,prompts_sentiment.txt10.0,0.25,5,100,21.4,20.0,86.19655275344849,modal-A100
+2026-01-19T19:07:05.456696,Qwen/Qwen2.5-14B-Instruct,introspection,prompts_sentiment.txt10.0,0.25,5,100,82.2,20.0,176.8823618888855,modal-A100
+2026-01-19T19:17:18.433733,Qwen/Qwen2.5-14B-Instruct,introspection,prompts_random.txt,10.0,0.25,5,100,60.4,20.0,179.589369058609,modal-A100

@@ -34,6 +34,8 @@ image = (
     )
     .add_local_file("sentences.txt", remote_path="/root/sentences.txt")
     .add_local_file("prompts.txt", remote_path="/root/prompts.txt")
+    .add_local_file("prompts_sentiment.txt", remote_path="/root/prompts_sentiment.txt")
+    .add_local_file("prompts_random.txt", remote_path="/root/prompts_random.txt")
     .add_local_file("introspection_localize.py", remote_path="/root/introspection_localize.py")
 )
 
@@ -51,6 +53,7 @@ def run_single_experiment(
     num_sentences: int,
     num_trials: int,
     prompt_mode: str,
+    prompts_file: str = "prompts.txt",
 ):
     """Run a single experiment on Modal GPU."""
     import os
@@ -68,7 +71,7 @@ def run_single_experiment(
         scales=[scale],
         num_sentences=num_sentences,
         sentences_file="sentences.txt",
-        prompts_file="prompts.txt",
+        prompts_file=prompts_file,
         num_trials=num_trials,
         plot=False,  # Don't plot on remote
     )
@@ -82,6 +85,7 @@ def run_single_experiment(
         "num_sentences": num_sentences,
         "num_trials": num_trials,
         "prompt_mode": prompt_mode,
+        "prompts_file": prompts_file,
         "accuracies": result["accuracies"],
         "elapsed_seconds": elapsed,
     }
@@ -214,7 +218,7 @@ def save_results_locally(result: dict, filename: str = "modal_results.csv"):
 
         if not file_exists:
             writer.writerow([
-                "timestamp", "model", "prompt_mode", "scale", "layer",
+                "timestamp", "model", "prompt_mode", "prompts_file", "scale", "layer",
                 "num_sentences", "num_trials", "accuracy", "chance",
                 "elapsed_seconds", "platform"
             ])
@@ -225,6 +229,7 @@ def save_results_locally(result: dict, filename: str = "modal_results.csv"):
                 datetime.now().isoformat(),
                 result["model"],
                 result["prompt_mode"],
+                result.get("prompts_file", "prompts.txt"),
                 result["scale"],
                 result["layer"],
                 result["num_sentences"],
@@ -277,6 +282,7 @@ def main(
     num_sentences: int = 5,
     num_trials: int = 100,
     prompt_mode: str = "introspection",
+    prompts_file: str = "prompts.txt",
     size_sweep: bool = False,
     layer_sweep: bool = False,
 ):
@@ -287,6 +293,7 @@ def main(
         modal run modal_run.py --model "Qwen/Qwen2.5-7B-Instruct" --scale 10
         modal run modal_run.py --size-sweep --scale 10 --num-trials 50
         modal run modal_run.py --layer-sweep --model "google/gemma-3-27b-it"
+        modal run modal_run.py --prompts-file prompts_sentiment.txt --prompt-mode negative
     """
     print(f"Dispatching to Modal GPU...")
     wall_start = time.time()
@@ -308,7 +315,7 @@ def main(
             num_trials=num_trials,
         )
     else:
-        print(f"Running: model={model}, scale={scale}, layer={layer}")
+        print(f"Running: model={model}, scale={scale}, layer={layer}, prompts={prompts_file}")
         result = run_single_experiment.remote(
             model_name=model,
             scale=scale,
@@ -316,6 +323,7 @@ def main(
             num_sentences=num_sentences,
             num_trials=num_trials,
             prompt_mode=prompt_mode,
+            prompts_file=prompts_file,
         )
 
     wall_elapsed = time.time() - wall_start

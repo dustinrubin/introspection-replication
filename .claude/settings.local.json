@@ -12,7 +12,13 @@
       "Bash(pkill:*)",
       "Bash(./venv/Scripts/pip:*)",
       "Bash(PYTHONIOENCODING=utf-8 ./venv/Scripts/python:*)",
-      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python:*)"
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python:*)",
+      "Bash(gh auth:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
